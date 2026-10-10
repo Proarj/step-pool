@@ -1,13 +1,11 @@
 -- Read access: members see their groups and the people in them. Nothing else.
 -- Signed-out visitors (anon) can read nothing.
 
+-- Membership counts while it is active (a leave takes effect the next day).
 create function public.is_group_member(p_group_id uuid) returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select exists (
-    select 1 from public.group_members
-    where group_id = p_group_id and user_id = auth.uid()
-  )
+  select public.is_active_member(p_group_id, auth.uid())
 $$;
 
 create function public.shares_group_with(p_user_id uuid) returns boolean
@@ -18,6 +16,8 @@ as $$
     from public.group_members mine
     join public.group_members theirs on theirs.group_id = mine.group_id
     where mine.user_id = auth.uid() and theirs.user_id = p_user_id
+      and public.is_active_member(mine.group_id, mine.user_id)
+      and public.is_active_member(theirs.group_id, theirs.user_id)
   )
 $$;
 
@@ -30,6 +30,7 @@ as $$
     from public.day_results dr
     join public.group_members mine on mine.group_id = dr.group_id
     where dr.user_id = p_user_id and mine.user_id = auth.uid()
+      and public.is_active_member(mine.group_id, mine.user_id)
   )
 $$;
 

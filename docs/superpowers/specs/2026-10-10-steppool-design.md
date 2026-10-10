@@ -64,6 +64,11 @@ notifications, friend requests or discovery, and time zones other than IST.
   **tomorrow** (IST).
 - **Joining:** by invite code. A member first takes part on the day **after**
   they join.
+- **Leaving:** takes effect **tomorrow**. You still play, and can still lose,
+  on the day you leave. Re-joining before then cancels the leave. Once a leave
+  has taken effect, re-joining counts as a fresh join. *(Changed 2026-10-10
+  after review: the earlier "left before midnight isn't scored" rule let anyone
+  dodge a bad day by leaving and re-joining.)*
 - **Wallet:** +1,000 coins on first sign-in. If a person's balance is 0 after
   scoring, they get +200.
 - **Upload cutoff:** the server only accepts uploads for **today** (IST). At
@@ -73,9 +78,8 @@ notifications, friend requests or discovery, and time zones other than IST.
 ### Scoring algorithm (per group, per unscored day D before today)
 
 1. Settings for D = the `group_settings` row with the latest `effective_from <= D`.
-2. Participants = **current** members (at scoring time) with `joined_on < D`.
-   Someone who left before scoring isn't included. If there are no
-   participants, mark D scored and stop.
+2. Participants = members with `joined_on < D` and (`left_on` is null or
+   `left_on > D`). If there are no participants, mark D scored and stop.
 3. For each participant: `steps` = their `daily_steps` total for D, or 0 if none.
    `hit = steps >= goal`.
 4. Each loser's loss = `min(stake, current balance)`. `pot` = sum of the losses.
@@ -102,7 +106,7 @@ winners gets 16, and the remaining 2 coins disappear.
 | `profiles` | `id` (= `auth.users.id`), `display_name`, `avatar_url`, `created_at` | Created by a trigger on sign-up. The trigger also writes the +1,000 welcome entry |
 | `groups` | `id`, `name`, `invite_code` (6 chars, unique), `created_by`, `created_at` | |
 | `group_settings` | `group_id`, `effective_from` (date), `step_goal`, `daily_stake` | PK (`group_id`, `effective_from`). A change upserts the row for tomorrow |
-| `group_members` | `group_id`, `user_id`, `joined_on` (date, IST) | PK (`group_id`, `user_id`) |
+| `group_members` | `group_id`, `user_id`, `joined_on` (date, IST), `left_on` (date, nullable: the first day they no longer play) | PK (`group_id`, `user_id`). Rows are kept after leaving |
 | `daily_steps` | `user_id`, `day` (date), `steps`, `source` (`apple_health` \| `health_connect`), `synced_at` | PK (`user_id`, `day`). Each upload upserts the latest total |
 | `coin_ledger` | `id`, `user_id`, `group_id` (nullable), `day` (nullable), `amount`, `reason` (`welcome` \| `won` \| `lost` \| `top_up`), `created_at` | Balance = `sum(amount)` |
 | `day_results` | `group_id`, `day`, `user_id`, `steps`, `step_goal`, `daily_stake`, `hit`, `coins_change` | Snapshot used by the History screen |
@@ -118,7 +122,7 @@ winners gets 16, and the remaining 2 coins disappear.
 | `join_group(invite_code)` | App | Adds the caller as a member, with `joined_on` = today |
 | `update_group_settings(group_id, step_goal, daily_stake)` | App (members only) | Upserts the settings row for tomorrow |
 | `upload_steps(day, steps, source)` | App | Rejects anything where `day ≠ today (IST)` or `steps` is out of range, then upserts |
-| `leave_group(group_id)` | App | Removes membership. Past results stay |
+| `leave_group(group_id)` | App | Sets `left_on` = tomorrow. The person stops seeing the group once it takes effect, and past results (with their name) stay |
 | `score_pending_days()` | pg_cron, hourly at :00 IST | Runs the scoring algorithm for every unscored day before today |
 
 ### Security (Row Level Security)

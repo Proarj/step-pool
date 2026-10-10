@@ -14,6 +14,17 @@ begin
 end;
 $$;
 
+-- Still in the group today: never left, or the leave starts on a later day.
+create function public.is_active_member(p_group_id uuid, p_user_id uuid) returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.group_members
+    where group_id = p_group_id and user_id = p_user_id
+      and (left_on is null or left_on > public.app_today())
+  )
+$$;
+
 create function public.assert_valid_settings(p_step_goal int, p_daily_stake int) returns void
 language plpgsql immutable
 as $$
@@ -89,9 +100,13 @@ begin
     raise exception 'No group with that invite code' using errcode = 'P0002';
   end if;
 
-  insert into public.group_members (group_id, user_id, joined_on)
+  -- Re-joining cancels a pending leave. Once a leave has taken effect, it is a
+  -- fresh join and the person plays again from tomorrow.
+  insert into public.group_members as gm (group_id, user_id, joined_on)
   values (v_group.id, v_user, public.app_today())
-  on conflict (group_id, user_id) do nothing;
+  on conflict (group_id, user_id) do update
+    set joined_on = case when gm.left_on <= public.app_today() then excluded.joined_on else gm.joined_on end,
+        left_on = null;
 
   return v_group;
 end;
@@ -106,9 +121,7 @@ declare
   v_user uuid := public.require_user();
   v_row public.group_settings;
 begin
-  if not exists (
-    select 1 from public.group_members where group_id = p_group_id and user_id = v_user
-  ) then
+  if not public.is_active_member(p_group_id, v_user) then
     raise exception 'You are not a member of this group' using errcode = '42501';
   end if;
   perform public.assert_valid_settings(p_step_goal, p_daily_stake);
@@ -123,17 +136,22 @@ begin
 end;
 $$;
 
+-- Leaving takes effect tomorrow: you still play (and can lose) today, so
+-- leaving and re-joining before midnight cannot dodge a bad day.
 create function public.leave_group(p_group_id uuid) returns void
 language plpgsql security definer set search_path = public
 as $$
 declare
   v_user uuid := public.require_user();
 begin
-  delete from public.group_members where group_id = p_group_id and user_id = v_user;
+  update public.group_members
+  set left_on = public.app_today() + 1
+  where group_id = p_group_id and user_id = v_user and left_on is null;
 end;
 $$;
 
 revoke execute on function public.require_user() from public, anon, authenticated;
+revoke execute on function public.is_active_member(uuid, uuid) from public, anon, authenticated;
 revoke execute on function public.assert_valid_settings(int, int) from public, anon, authenticated;
 revoke execute on function public.generate_invite_code() from public, anon, authenticated;
 

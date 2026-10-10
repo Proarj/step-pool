@@ -34,10 +34,12 @@ create table public.group_settings (
   primary key (group_id, effective_from)
 );
 
+-- left_on: the first day the person no longer plays (leaving takes effect tomorrow).
 create table public.group_members (
   group_id uuid not null references public.groups (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
   joined_on date not null,
+  left_on date check (left_on > joined_on),
   primary key (group_id, user_id)
 );
 create index group_members_user_idx on public.group_members (user_id);

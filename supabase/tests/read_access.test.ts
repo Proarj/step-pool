@@ -61,6 +61,7 @@ describe('a member', () => {
 
   it('still sees the names of people who left, next to their past results', async () => {
     await db.as(ben, () => db.sql('select public.leave_group($1)', [g1]));
+    await db.setNow(ist('2026-10-13')); // the leave has taken effect
     const rows = await db.as(asha, () =>
       db.sql<{ user_id: string; display_name: string | null }>(
         `select dr.user_id, p.display_name
@@ -68,6 +69,18 @@ describe('a member', () => {
          where dr.group_id = $1`, [g1]));
     expect(Object.fromEntries(rows.map((r) => [r.user_id, r.display_name])))
       .toEqual({ [asha]: 'Asha', [ben]: 'Ben' });
+  });
+
+  it('keeps seeing the group until the leave takes effect, then not', async () => {
+    await db.as(ben, () => db.sql('select public.leave_group($1)', [g1]));
+    await db.as(ben, async () => {
+      expect(ids(await db.sql('select id from public.groups'), 'id')).toEqual([g1]);
+    });
+    await db.setNow(ist('2026-10-13'));
+    await db.as(ben, async () => {
+      expect(await db.sql('select id from public.groups')).toEqual([]);
+      expect(await db.sql('select user_id from public.day_results where group_id = $1', [g1])).toEqual([]);
+    });
   });
 
   it('still cannot write to the balances view', async () => {

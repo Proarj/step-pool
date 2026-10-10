@@ -119,11 +119,47 @@ describe('update_group_settings', () => {
 });
 
 describe('leave_group', () => {
-  it('removes the caller from the group', async () => {
+  const membership = async (groupId: string, userId: string) => {
+    const [row] = await db.sql<{ joined_on: string; left_on: string | null }>(
+      `select joined_on::text as joined_on, left_on::text as left_on
+       from public.group_members where group_id = $1 and user_id = $2`, [groupId, userId]);
+    return row;
+  };
+
+  async function groupWithBen() {
     const group = await createGroup(asha);
     const ben = await db.createUser({ name: 'Ben' });
     await db.as(ben, () => db.sql('select public.join_group($1)', [group.invite_code]));
+    return { group, ben };
+  }
+
+  it('takes effect tomorrow', async () => {
+    const { group, ben } = await groupWithBen();
     await db.as(ben, () => db.sql('select public.leave_group($1)', [group.id]));
-    expect(await membersOf(group.id)).toEqual([{ user_id: asha, joined_on: '2026-10-10' }]);
+    expect(await membership(group.id, ben)).toEqual({ joined_on: '2026-10-10', left_on: '2026-10-11' });
+  });
+
+  it('is cancelled by re-joining the same day', async () => {
+    const { group, ben } = await groupWithBen();
+    await db.as(ben, () => db.sql('select public.leave_group($1)', [group.id]));
+    await db.as(ben, () => db.sql('select public.join_group($1)', [group.invite_code]));
+    expect(await membership(group.id, ben)).toEqual({ joined_on: '2026-10-10', left_on: null });
+  });
+
+  it('once it has taken effect, re-joining starts again from the next day', async () => {
+    const { group, ben } = await groupWithBen();
+    await db.as(ben, () => db.sql('select public.leave_group($1)', [group.id]));
+    await db.setNow(ist('2026-10-12'));
+    await db.as(ben, () => db.sql('select public.join_group($1)', [group.invite_code]));
+    expect(await membership(group.id, ben)).toEqual({ joined_on: '2026-10-12', left_on: null });
+  });
+
+  it('once it has taken effect, the settings can no longer be changed', async () => {
+    const { group, ben } = await groupWithBen();
+    await db.as(ben, () => db.sql('select public.leave_group($1)', [group.id]));
+    await db.setNow(ist('2026-10-11'));
+    await expect(db.as(ben, () =>
+      db.sql('select public.update_group_settings($1, 8000, 60)', [group.id]),
+    )).rejects.toThrow(/You are not a member of this group/);
   });
 });

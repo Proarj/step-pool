@@ -9,7 +9,7 @@ as $$
   select coalesce(sum(amount), 0)::int from public.coin_ledger where user_id = p_user_id
 $$;
 
--- Who plays on p_day: current members who joined before that day.
+-- Who plays on p_day: members who joined before that day and had not left by it.
 create function public.group_day_participants(p_group_id uuid, p_day date, p_goal int)
 returns table (user_id uuid, steps int, hit boolean)
 language sql stable security definer set search_path = public
@@ -19,7 +19,9 @@ as $$
          coalesce(s.steps, 0) >= p_goal as hit
   from public.group_members m
   left join public.daily_steps s on s.user_id = m.user_id and s.day = p_day
-  where m.group_id = p_group_id and m.joined_on < p_day
+  where m.group_id = p_group_id
+    and m.joined_on < p_day
+    and (m.left_on is null or m.left_on > p_day)
   order by m.user_id
 $$;
 
