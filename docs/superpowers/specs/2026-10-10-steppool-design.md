@@ -125,8 +125,9 @@ winners gets 16, and the remaining 2 coins disappear.
 
 - Members can read groups, settings, members, `daily_steps`, `day_results` and
   profiles **only for groups they belong to**.
-- People can read their own `coin_ledger` rows and the balances of fellow group
-  members, through a view.
+- People can read the `coin_ledger` rows of themselves and fellow group members.
+  The `balances` view (`security_invoker`) sums them, so fellow members see each
+  other's balances.
 - **No direct inserts or updates from the app** on any table. All writes go
   through the functions above. `coin_ledger`, `day_results` and `scored_days`
   are written only by `score_pending_days()` and the sign-up trigger.
@@ -199,12 +200,17 @@ winners gets 16, and the remaining 2 coins disappear.
   settings change taking effect the next day, running twice (idempotent),
   upload for a past day rejected, and RLS (a non-member can't read a group).
 - **Client logic:** unit tests for IST day boundaries and the "if the day ended
-  now" preview (Jest).
+  now" preview (Vitest, the same runner as the SQL tests).
+- **SQL test runner:** PGlite (Postgres compiled to WebAssembly, runs inside
+  Node) with Supabase-like stubs for `auth.uid()`, the `anon`/`authenticated`
+  roles and Supabase's default grants. This works without Docker.
 - **Step reading:** manual tests: iOS Simulator with sample Health data, then
   the owner's Android phone with Garmin, then the real iPhones with Apple Watch.
 
 ## 8. Setup and distribution
 
+0. **Toolchain:** Node.js 24 via nvm, pinned in `.nvmrc`. Expo SDK 57 / React
+   Native 0.86 need Node ≥ 22.13.
 1. **Supabase:** a free project. Migrations are applied with the Supabase CLI
    or the SQL editor.
 2. **Google Cloud:** a project, OAuth consent screen (External, Testing, 4 test
@@ -223,7 +229,7 @@ winners gets 16, and the remaining 2 coins disappear.
 
 ```
 step-pool/
-  app/                 expo-router screens
+  src/app/             expo-router screens (Expo SDK 57 template layout)
   src/lib/             supabase client, time (IST), sync, preview logic
   src/health/          health.ios.ts, health.android.ts (same interface)
   supabase/migrations/ SQL schema, RLS, functions, cron
