@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# superpowers plan workspaces and build logs
+.superpowers/
