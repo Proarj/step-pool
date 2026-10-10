@@ -80,9 +80,9 @@ notifications, friend requests or discovery, and time zones other than IST.
    `hit = steps >= goal`.
 4. Each loser's loss = `min(stake, current balance)`. `pot` = sum of the losses.
 5. If there are **no winners** or `pot = 0`, nobody's coins change.
-6. Otherwise each winner gets `floor(pot / winners)`. The remainder goes to the
-   winner with the most steps. Ties go to the earliest `joined_on`, then the
-   lowest user id.
+6. Otherwise each winner gets `floor(pot / winners)`. Any remainder (at most
+   `winners − 1` coins) isn't awarded to anyone; it disappears. With 4 members,
+   a stake that's a multiple of 6 never leaves a remainder.
 7. Any participant whose balance is now 0 gets +200 (`top_up`).
 8. Write `day_results` for every participant and mark D in `scored_days`. All of
    this happens in **one transaction**. A day that is already scored is skipped,
@@ -92,8 +92,8 @@ Groups are scored in a fixed order (by `created_at`). This matters only if one
 person is in several groups, because their balance changes between groups.
 
 **Worked example** (goal 10,000, stake 30): You 12,400 ✅ +30, A 10,050 ✅ +30,
-B 9,800 ❌ −30, C 4,000 ❌ −30. With stake 50 and one loser: 16/16/18. The
-extra 2 coins go to the top stepper.
+B 9,800 ❌ −30, C 4,000 ❌ −30. With stake 50 and one loser: each of the 3
+winners gets 16, and the remaining 2 coins disappear.
 
 ## 4. Data model (Postgres)
 
