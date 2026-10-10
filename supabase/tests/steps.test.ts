@@ -1,7 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb, ist, type TestDb } from './db';
 
 let db: TestDb;
+afterEach(async () => {
+  await db.close();
+});
 let asha: string;
 beforeEach(async () => {
   db = await createTestDb();

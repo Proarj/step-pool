@@ -52,9 +52,14 @@ export type TestDb = {
   createUser(opts?: { name?: string; email?: string }): Promise<string>;
   /** Runs fn as a signed-in user (role authenticated), or signed out (role anon) when userId is null. */
   as<T>(userId: string | null, fn: () => Promise<T>): Promise<T>;
+  /** Frees the database. Every test must call this (each instance holds ~100 MB of WASM memory). */
+  close(): Promise<void>;
 };
 
-export async function createTestDb(): Promise<TestDb> {
+let template: Promise<PGlite> | undefined;
+
+/** Builds the migrated database once per test file; tests get cheap clones of it. */
+async function buildTemplate(): Promise<PGlite> {
   const pg = await PGlite.create();
   await pg.exec(SUPABASE_STUBS);
   const migrations = readdirSync(MIGRATIONS_DIR)
@@ -64,6 +69,12 @@ export async function createTestDb(): Promise<TestDb> {
     await pg.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
   }
   await pg.exec(TEST_CLOCK);
+  return pg;
+}
+
+export async function createTestDb(): Promise<TestDb> {
+  template ??= buildTemplate();
+  const pg = await (await template).clone();
 
   async function sql<T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> {
     const result = await pg.query<T>(query, params);
@@ -94,5 +105,9 @@ export async function createTestDb(): Promise<TestDb> {
     }
   }
 
-  return { sql, setNow, createUser, as };
+  async function close(): Promise<void> {
+    await pg.close();
+  }
+
+  return { sql, setNow, createUser, as, close };
 }

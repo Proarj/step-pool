@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb, ist, type TestDb } from './db';
 import { helpers } from './helpers';
 
@@ -8,6 +8,9 @@ const D2 = '2026-10-12';
 const D3 = '2026-10-13';
 
 let db: TestDb;
+afterEach(async () => {
+  await db.close();
+});
 let h: ReturnType<typeof helpers>;
 beforeEach(async () => {
   db = await createTestDb();
