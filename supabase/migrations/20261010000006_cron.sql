@@ -2,6 +2,8 @@
 -- pg_cron uses UTC. Minute 30 of every UTC hour is minute 0 of every IST hour,
 -- so the first run each day is 12:00 AM IST and the rest are catch-up runs.
 create extension if not exists pg_cron with schema pg_catalog;
+grant usage on schema cron to postgres;
+grant all privileges on all tables in schema cron to postgres;
 
 select cron.schedule(
   'score-pending-days',

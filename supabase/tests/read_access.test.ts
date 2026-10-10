@@ -59,6 +59,17 @@ describe('a member', () => {
     expect(g2).toBeTruthy();
   });
 
+  it('still sees the names of people who left, next to their past results', async () => {
+    await db.as(ben, () => db.sql('select public.leave_group($1)', [g1]));
+    const rows = await db.as(asha, () =>
+      db.sql<{ user_id: string; display_name: string | null }>(
+        `select dr.user_id, p.display_name
+         from public.day_results dr left join public.profiles p on p.id = dr.user_id
+         where dr.group_id = $1`, [g1]));
+    expect(Object.fromEntries(rows.map((r) => [r.user_id, r.display_name])))
+      .toEqual({ [asha]: 'Asha', [ben]: 'Ben' });
+  });
+
   it('still cannot write to the balances view', async () => {
     await db.as(asha, async () => {
       await expect(db.sql(`delete from public.balances`)).rejects.toThrow(/permission denied|cannot delete/);

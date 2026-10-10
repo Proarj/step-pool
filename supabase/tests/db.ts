@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { PGlite } from '@electric-sql/pglite';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';

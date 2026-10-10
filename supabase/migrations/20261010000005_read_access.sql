@@ -21,10 +21,24 @@ as $$
   )
 $$;
 
+-- People who left still appear in a group's history, so their names stay readable there.
+create function public.appears_in_my_groups(p_user_id uuid) returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.day_results dr
+    join public.group_members mine on mine.group_id = dr.group_id
+    where dr.user_id = p_user_id and mine.user_id = auth.uid()
+  )
+$$;
+
 revoke execute on function public.is_group_member(uuid) from public, anon;
 revoke execute on function public.shares_group_with(uuid) from public, anon;
+revoke execute on function public.appears_in_my_groups(uuid) from public, anon;
 grant execute on function public.is_group_member(uuid) to authenticated;
 grant execute on function public.shares_group_with(uuid) to authenticated;
+grant execute on function public.appears_in_my_groups(uuid) to authenticated;
 
 create policy "members read their groups" on public.groups
   for select to authenticated using (public.is_group_member(id));
@@ -35,7 +49,8 @@ create policy "members read group members" on public.group_members
 create policy "members read day results" on public.day_results
   for select to authenticated using (public.is_group_member(group_id));
 create policy "read profiles of people you share a group with" on public.profiles
-  for select to authenticated using (public.shares_group_with(id));
+  for select to authenticated
+  using (public.shares_group_with(id) or public.appears_in_my_groups(id));
 create policy "read steps of people you share a group with" on public.daily_steps
   for select to authenticated using (public.shares_group_with(user_id));
 create policy "read coins of people you share a group with" on public.coin_ledger
