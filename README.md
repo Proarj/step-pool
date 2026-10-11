@@ -114,12 +114,12 @@ node -v   # should print v24.x
 ### 3. Get the code (one time)
 
 ```bash
-git clone https://github.com/<owner>/step-pool.git
+git clone https://github.com/Proarj/step-pool.git
 cd step-pool
 npm ci
 ```
 
-If the repo is private, the organiser has to add your GitHub account first.
+The repo is public, so you don't need a GitHub account to download it.
 
 ### 4. Prepare your iPhone (one time)
 
