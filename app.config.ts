@@ -53,6 +53,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-background-task',
     'expo-notifications',
     './plugins/without-push-entitlement',
+    './plugins/gradle-memory',
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
   extra: { buildTime: new Date().toISOString() },
