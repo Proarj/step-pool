@@ -1,43 +1,56 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Share } from 'react-native';
+import { Alert, Share, Text } from 'react-native';
 import { getGroupToday, leaveGroup, setMyStake, updateGroupGoal } from '@/lib/api';
 import { message } from '@/lib/errors';
 import { useSession } from '@/lib/session';
 import { istToday } from '@/lib/time';
 import { useAsync } from '@/lib/use-async';
-import { Body, Button, Card, ErrorText, Field, Muted, Screen, Subtitle } from '@/ui/kit';
+import { Button, Card, Code, EditSheet, ErrorText, ListGroup, ListRow, Muted, Pill, Row, Screen, SectionLabel } from '@/ui/kit';
+import { useTheme } from '@/ui/theme';
 
 const toInt = (s: string) => Number.parseInt(s.replace(/\D/g, ''), 10);
 
+type Editing = { what: 'goal' | 'stake'; draft: string } | null;
+
 export default function GroupSettings() {
+  const t = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const me = useSession().session?.user.id;
   const today = istToday();
-  const { data } = useAsync(() => getGroupToday(id, today), [id, today]);
-  const [goal, setGoal] = useState<string>();
-  const [stake, setStake] = useState<string>();
-  const [busy, setBusy] = useState<'goal' | 'stake'>();
+  const { data, reload } = useAsync(() => getGroupToday(id, today), [id, today]);
+  const [editing, setEditing] = useState<Editing>(null);
+  const [busy, setBusy] = useState(false);
+  const [sheetError, setSheetError] = useState<string>();
   const [note, setNote] = useState<string>();
   const [error, setError] = useState<string>();
 
   if (!data) return <Screen><Muted>Loading…</Muted></Screen>;
   const mine = data.members.find((m) => m.userId === me);
-  const goalText = goal ?? String((data.tomorrow ?? data.today).stepGoal);
-  const stakeText = stake ?? String(mine?.stakeTomorrow ?? mine?.stake ?? 30);
+  const goalToday = data.today.stepGoal;
+  const goalTomorrow = data.tomorrow?.stepGoal ?? null;
+  const myStake = mine?.stake ?? 30;
+  const myStakeTomorrow = mine?.stakeTomorrow ?? null;
 
-  async function save(what: 'goal' | 'stake') {
-    setBusy(what);
-    setError(undefined);
-    setNote(undefined);
+  function open(what: 'goal' | 'stake') {
+    setSheetError(undefined);
+    setEditing({ what, draft: String(what === 'goal' ? goalTomorrow ?? goalToday : myStakeTomorrow ?? myStake) });
+  }
+
+  async function save() {
+    if (!editing) return;
+    setBusy(true);
+    setSheetError(undefined);
     try {
-      if (what === 'goal') await updateGroupGoal(id, toInt(goalText));
-      else await setMyStake(id, toInt(stakeText));
-      setNote(what === 'goal' ? 'Saved. The new goal starts tomorrow.' : 'Saved. Your new stake starts tomorrow.');
+      if (editing.what === 'goal') await updateGroupGoal(id, toInt(editing.draft));
+      else await setMyStake(id, toInt(editing.draft));
+      setNote(editing.what === 'goal' ? 'Saved. The new goal starts tomorrow.' : 'Saved. Your new stake starts tomorrow.');
+      setEditing(null);
+      void reload();
     } catch (e) {
-      setError(message(e));
+      setSheetError(message(e));
     } finally {
-      setBusy(undefined);
+      setBusy(false);
     }
   }
 
@@ -54,37 +67,51 @@ export default function GroupSettings() {
     ]);
   }
 
+  const goalSubtitle = goalTomorrow !== null && goalTomorrow !== goalToday
+    ? `Same for everyone · ${goalTomorrow.toLocaleString()} from tomorrow`
+    : 'Same for everyone';
+  const stakeSubtitle = myStakeTomorrow !== null
+    ? `Only yours · ${myStakeTomorrow} from tomorrow`
+    : mine?.playsToday === false ? 'Only yours · you start tomorrow' : 'Only yours';
+
   return (
     <Screen>
-      <Subtitle>Invite</Subtitle>
       <Card>
-        <Body>Invite code: {data.group.inviteCode}</Body>
-        <Button
-          kind="secondary"
-          title="Share invite"
-          onPress={() => void Share.share({ message: `Join my StepPool group "${data.group.name}" with code ${data.group.inviteCode}` })}
-        />
+        <Text style={{ fontSize: 13, color: t.muted }}>Invite code</Text>
+        <Row>
+          <Code>{data.group.inviteCode}</Code>
+          <Pill
+            title="Share"
+            onPress={() => void Share.share({ message: `Join my StepPool group "${data.group.name}" with code ${data.group.inviteCode}` })}
+          />
+        </Row>
       </Card>
 
-      <Subtitle>Group goal</Subtitle>
-      <Card>
-        <Muted>Today: {data.today.stepGoal.toLocaleString()} steps for everyone. Changes start tomorrow.</Muted>
-        <Field label="Daily step goal" value={goalText} onChangeText={setGoal} keyboardType="number-pad" />
-        <Button title="Save goal for tomorrow" onPress={() => void save('goal')} busy={busy === 'goal'} />
-      </Card>
-
-      <Subtitle>Your stake</Subtitle>
-      <Card>
-        <Muted>
-          {mine?.playsToday ? `Today you’re staking ${mine.stake} coins.` : 'You start playing tomorrow.'} Changes start tomorrow.
-        </Muted>
-        <Field label="Your daily stake (coins)" value={stakeText} onChangeText={setStake} keyboardType="number-pad" />
-        <Button title="Save stake for tomorrow" onPress={() => void save('stake')} busy={busy === 'stake'} />
-      </Card>
+      <SectionLabel>The game</SectionLabel>
+      <ListGroup>
+        <ListRow first title="Step goal" subtitle={goalSubtitle} value={goalToday.toLocaleString()} onPress={() => open('goal')} />
+        <ListRow title="Your stake" subtitle={stakeSubtitle} value={`${myStake} coins`} accentValue onPress={() => open('stake')} />
+      </ListGroup>
+      <Muted>Changes start tomorrow, so nobody can change today’s rules after seeing the steps.</Muted>
       {note ? <Muted>{note}</Muted> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
 
       <Button kind="danger" title="Leave group" onPress={confirmLeave} />
-      {error ? <ErrorText>{error}</ErrorText> : null}
+
+      <EditSheet
+        visible={editing !== null}
+        title={editing?.what === 'goal' ? 'Step goal' : 'Your stake'}
+        hint={editing?.what === 'goal'
+          ? 'The daily goal for everyone in the group, from 1,000 to 100,000 steps. Starts tomorrow.'
+          : 'How many coins you put in each day, from 1 to 1,000. Starts tomorrow.'}
+        label={editing?.what === 'goal' ? 'Steps per day' : 'Coins per day'}
+        value={editing?.draft ?? ''}
+        onChangeText={(draft) => setEditing((current) => (current ? { ...current, draft } : current))}
+        onSave={() => void save()}
+        onClose={() => setEditing(null)}
+        busy={busy}
+        error={sheetError}
+      />
     </Screen>
   );
 }

@@ -1,12 +1,42 @@
 import { useColorScheme } from 'react-native';
 
+// "Indigo" (picked 2026-10-11). Green/red are reserved for coins won/lost so
+// they never look like buttons; indigo is the accent for actions.
 const light = {
-  background: '#F6F7F9', card: '#FFFFFF', text: '#14171A', muted: '#5F6B76', border: '#E3E7EB',
-  accent: '#1E9E5A', accentText: '#FFFFFF', danger: '#C93A3A', track: '#E8ECEF',
+  dark: false,
+  background: '#F4F5FB',
+  card: '#FFFFFF',
+  text: '#11142B',
+  muted: '#6B7090',
+  separator: '#EEF0F6',
+  field: '#F0F1F8',
+  accent: '#5B5BD6',
+  accentSoft: '#EEF0FF',
+  onAccent: '#FFFFFF',
+  win: '#15803D',
+  winSoft: '#E7F7EE',
+  loss: '#C2353B',
+  lossSoft: '#FDECEC',
+  track: '#E6E8F2',
+  scrim: 'rgba(17, 20, 43, 0.35)',
 };
 const dark: typeof light = {
-  background: '#0F1214', card: '#1A1F23', text: '#F1F3F5', muted: '#9AA5AF', border: '#2A3137',
-  accent: '#34C77B', accentText: '#0B1A12', danger: '#FF6B6B', track: '#2A3137',
+  dark: true,
+  background: '#0E1020',
+  card: '#181B33',
+  text: '#E8E9F5',
+  muted: '#9A9EC0',
+  separator: '#24284A',
+  field: '#22264A',
+  accent: '#A5A8FF',
+  accentSoft: '#272B55',
+  onAccent: '#0E1020',
+  win: '#4ADE80',
+  winSoft: '#123524',
+  loss: '#FF7B80',
+  lossSoft: '#3A1518',
+  track: '#2A2E52',
+  scrim: 'rgba(0, 0, 0, 0.55)',
 };
 
 export type Theme = typeof light;

@@ -1,10 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
 import { getHistory } from '@/lib/api';
-import { formatCoins, formatDay } from '@/lib/format';
+import { formatDay } from '@/lib/format';
 import { buildLeaderboard, groupByDay, pairTotals } from '@/lib/leaderboard';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/use-async';
-import { Body, Card, ErrorText, Muted, Row, Screen, Subtitle } from '@/ui/kit';
+import { Body, Card, Coins, ErrorText, Muted, Row, Screen, Subtitle } from '@/ui/kit';
 
 export default function History() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,7 +31,7 @@ export default function History() {
             <Row key={r.userId}>
               <Body>{i + 1}. {name(r.userId)}</Body>
               <Muted>{r.daysHit}/{r.daysPlayed} days · streak {r.streak}</Muted>
-              <Body>{formatCoins(r.net)}</Body>
+              <Coins value={r.net} />
             </Row>
           ))}
         </Card>
@@ -57,7 +57,7 @@ export default function History() {
             <Row key={r.userId}>
               <Muted>{r.hit ? '✅' : '❌'} {name(r.userId)} · stake {r.stake}</Muted>
               <Muted>{r.steps.toLocaleString()} steps</Muted>
-              <Body>{formatCoins(r.coinsChange)}</Body>
+              <Coins value={r.coinsChange} />
             </Row>
           ))}
           {(paymentsByDay.get(day) ?? []).map((t) => (
