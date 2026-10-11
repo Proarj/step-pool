@@ -30,7 +30,6 @@ function MemberCard({ member, goal, isMe, change, now }: {
         {`Stake ${member.stake}`}
         {member.stakeTomorrow !== null ? ` (${member.stakeTomorrow} from tomorrow)` : ''}
         {` · total ${formatCoins(member.total)}`}
-        {member.leavingAfterToday ? ' · leaving after today' : ''}
       </Muted>
       <Muted>{member.syncedAt ? `Synced ${formatAgo(member.syncedAt, now)}` : 'Not synced today'}</Muted>
       {isMe && member.steps === 0 ? (

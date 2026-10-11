@@ -77,12 +77,8 @@ describe('a member', () => {
       .toEqual({ [asha]: 'Asha', [ben]: 'Ben' });
   });
 
-  it('keeps seeing the group until the leave takes effect, then not', async () => {
+  it('stops seeing the group as soon as they leave', async () => {
     await db.as(ben, () => db.sql('select public.leave_group($1)', [g1]));
-    await db.as(ben, async () => {
-      expect(ids(await db.sql('select id from public.groups'), 'id')).toEqual([g1]);
-    });
-    await db.setNow(ist('2026-10-13'));
     await db.as(ben, async () => {
       expect(await db.sql('select id from public.groups')).toEqual([]);
       expect(await db.sql('select user_id from public.day_results where group_id = $1', [g1])).toEqual([]);

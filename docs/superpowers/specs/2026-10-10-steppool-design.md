@@ -68,11 +68,12 @@ notifications, friend requests or discovery, and time zones other than IST.
   takes effect **tomorrow** (IST).
 - **Joining:** by invite code. A member first takes part on the day **after**
   they join.
-- **Leaving:** takes effect **tomorrow**. You still play, and can still lose,
-  on the day you leave. Re-joining before then cancels the leave. Once a leave
-  has taken effect, re-joining counts as a fresh join. *(Changed 2026-10-10
-  after review: the earlier "left before midnight isn't scored" rule let anyone
-  dodge a bad day by leaving and re-joining.)*
+- **Leaving:** takes effect **immediately**. The group disappears for the
+  leaver at once, and they sit out that day (they neither win nor lose). Their
+  past results stay. Re-joining later is a fresh join that plays from the next
+  day. *(Changed 2026-10-11 at the owner's request, "if you leave you leave".
+  The owner accepted that leaving and re-joining lets someone skip a bad day.
+  The 2026-10-10 "leave takes effect tomorrow" rule was dropped as confusing.)*
 - **No wallet:** everyone starts at 0. A person's total is coins won minus
   coins lost, and it can go negative. Losers always pay their full stake (minus
   rounding). There are no top-ups and no balance caps. *(Changed 2026-10-11:
@@ -115,7 +116,7 @@ staked 50, she would pay 16 and 33 and keep 1 coin.
 | `groups` | `id`, `name`, `invite_code` (6 chars, unique), `created_by`, `created_at` | |
 | `group_settings` | `group_id`, `effective_from` (date), `step_goal` | PK (`group_id`, `effective_from`). A change upserts the row for tomorrow |
 | `member_stakes` | `group_id`, `user_id`, `effective_from` (date), `stake` | PK (`group_id`, `user_id`, `effective_from`). Create, join and changes all upsert the row for tomorrow |
-| `group_members` | `group_id`, `user_id`, `joined_on` (date, IST), `left_on` (date, nullable: the first day they no longer play) | PK (`group_id`, `user_id`). Rows are kept after leaving |
+| `group_members` | `group_id`, `user_id`, `joined_on` (date, IST), `left_on` (date, nullable: the first day they no longer play, i.e. the day they left) | PK (`group_id`, `user_id`). Rows are kept after leaving. `left_on >= joined_on` |
 | `daily_steps` | `user_id`, `day` (date), `steps`, `source` (`apple_health` \| `health_connect`), `synced_at` | PK (`user_id`, `day`). Each upload upserts the latest total |
 | `day_transfers` | `group_id`, `day`, `from_user`, `to_user`, `amount` (> 0) | PK (`group_id`, `day`, `from_user`, `to_user`). Who paid whom, per day |
 | `day_results` | `group_id`, `day`, `user_id`, `steps`, `step_goal`, `stake`, `hit`, `coins_change` | Snapshot used by the History screen |
@@ -133,7 +134,7 @@ staked 50, she would pay 16 and 33 and keep 1 coin.
 | `update_group_settings(group_id, step_goal)` | App (active members only) | Upserts the goal row for tomorrow |
 | `set_my_stake(group_id, stake)` | App (active members only) | Upserts the caller's stake for tomorrow |
 | `upload_steps(day, steps, source)` | App | Rejects anything where `day ≠ today (IST)` or `steps` is out of range, then upserts |
-| `leave_group(group_id)` | App | Sets `left_on` = tomorrow. The person stops seeing the group once it takes effect, and past results (with their name) stay |
+| `leave_group(group_id)` | App | Sets `left_on` = today. The person stops seeing the group at once and isn't scored that day. Past results (with their name) stay |
 | `score_pending_days()` | pg_cron, hourly at :00 IST | Runs the scoring algorithm for every unscored day before today |
 
 ### Security (Row Level Security)

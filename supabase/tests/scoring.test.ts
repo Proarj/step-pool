@@ -121,31 +121,35 @@ describe('score_pending_days', () => {
     expect(await h.changes(groupId, D2)).toEqual({ [you]: 30, [a]: 30, [late]: -60 });
   });
 
-  it('still scores someone on the day they leave, and not after', async () => {
+  it('leaves out someone who left before midnight, from that day on', async () => {
     const [you, a, quitter] = await h.users('You', 'A', 'Quitter');
     const { groupId } = await h.newGroup(you, [a, quitter]);
     await h.walk(you, D1, 12000);
-    await h.walk(a, D1, 12000);
+    await h.walk(a, D1, 4000);
     await h.walk(quitter, D1, 1000);
     await db.as(quitter, () => db.sql('select public.leave_group($1)', [groupId]));
     await h.walk(you, D2, 12000);
     await h.walk(a, D2, 4000);
     await h.scoreAt(ist(D3, '00:00'));
-    expect(await h.changes(groupId, D1)).toEqual({ [you]: 15, [a]: 15, [quitter]: -30 });
+    expect(await h.changes(groupId, D1)).toEqual({ [you]: 30, [a]: -30 });
     expect(await h.changes(groupId, D2)).toEqual({ [you]: 30, [a]: -30 });
   });
 
-  it('cannot dodge a loss by leaving and re-joining before midnight', async () => {
-    const [you, a, dodger] = await h.users('You', 'A', 'Dodger');
-    const { groupId, inviteCode } = await h.newGroup(you, [a, dodger]);
+  it('someone who leaves and re-joins sits out that day and plays again the next (accepted by the owner)', async () => {
+    const [you, a, back] = await h.users('You', 'A', 'Back');
+    const { groupId, inviteCode } = await h.newGroup(you, [a, back]);
     await h.walk(you, D1, 12000);
     await h.walk(a, D1, 12000);
-    await h.walk(dodger, D1, 1000);
+    await h.walk(back, D1, 1000);
     await db.setNow(ist(D1, '23:55'));
-    await db.as(dodger, () => db.sql('select public.leave_group($1)', [groupId]));
-    await h.join(dodger, inviteCode);
-    await h.scoreAt(ist(D2, '00:00'));
-    expect(await h.changes(groupId, D1)).toEqual({ [you]: 15, [a]: 15, [dodger]: -30 });
+    await db.as(back, () => db.sql('select public.leave_group($1)', [groupId]));
+    await h.join(back, inviteCode);
+    await h.walk(you, D2, 12000);
+    await h.walk(a, D2, 12000);
+    await h.walk(back, D2, 1000);
+    await h.scoreAt(ist(D3, '00:00'));
+    expect(await h.changes(groupId, D1)).toEqual({ [you]: 0, [a]: 0 });
+    expect(await h.changes(groupId, D2)).toEqual({ [you]: 15, [a]: 15, [back]: -30 });
   });
 
   it("scores each day with that day's goal", async () => {

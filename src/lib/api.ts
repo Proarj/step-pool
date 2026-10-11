@@ -19,7 +19,6 @@ export type MemberToday = {
   /** Running total in this group: coins won minus coins lost. */
   total: number;
   playsToday: boolean;
-  leavingAfterToday: boolean;
 };
 export type GroupToday = { group: Group; today: Goal; tomorrow: Goal | null; members: MemberToday[] };
 export type HistoryRow = {
@@ -80,6 +79,7 @@ export async function getGroupToday(groupId: string, today: string): Promise<Gro
   const goals = unwrap(goalsRes);
   const stakes = unwrap(stakesRes);
   const totals = new Map(unwrap(totalsRes).map((t) => [t.user_id, t.total ?? 0]));
+  // Leaving takes effect at once (left_on = the day they left), so only left_on = null is still in.
   const members = unwrap(membersRes).filter((m) => m.left_on === null || m.left_on > today);
   const ids = members.map((m) => m.user_id);
   const steps = new Map(
@@ -108,7 +108,6 @@ export async function getGroupToday(groupId: string, today: string): Promise<Gro
         syncedAt: steps.get(m.user_id)?.synced_at ?? null,
         ...memberDay(m.joined_on, today, stakeOn(m.user_id, today), stakeOn(m.user_id, tomorrow)),
         total: totals.get(m.user_id) ?? 0,
-        leavingAfterToday: m.left_on !== null,
       }))
       .sort((a, b) => b.steps - a.steps),
   };

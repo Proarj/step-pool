@@ -31,13 +31,14 @@ All backend logic is in `supabase/migrations/`:
 | `…05_read_access.sql` | Row Level Security: members see their group and its people only |
 | `…06_cron.sql` | Runs scoring every hour on the hour IST (Supabase only) |
 | `20261011000001_stakes.sql` | Rules update: per-person stakes (`set_my_stake`), losers pay winners in proportion to the winners' stakes (`day_transfers`), no wallet (`group_totals` can go negative). Wipes all game data |
+| `20261011000002_leave_now.sql` | Leaving takes effect immediately (you sit out that day). Wipes all game data again |
 
 **Rules in one paragraph:** everyone in a group shares one daily step goal and
 picks their own stake (1–1,000 coins). At 12:00 AM IST, each person who missed
 the goal pays each person who hit it `floor(loser stake × winner stake / total
 winners' stake)`, and rounding stays with the loser. If everyone or nobody hit
-the goal, nothing moves. Totals start at 0. Changes to the goal or a stake, and
-leaving, take effect the next day.
+the goal, nothing moves. Totals start at 0. Changes to the goal or a stake take
+effect the next day. Leaving takes effect immediately.
 
 Apply them to a Supabase project:
 

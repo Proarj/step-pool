@@ -55,7 +55,7 @@ export default function GroupSettings() {
   }
 
   function confirmLeave() {
-    Alert.alert('Leave this group?', 'You still play today, and can still lose today’s stake. You leave from tomorrow.', [
+    Alert.alert('Leave this group?', 'You’ll leave right away and won’t play today. Your past results stay in the group’s history.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Leave',
