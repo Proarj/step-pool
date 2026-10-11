@@ -1,5 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { buildLeaderboard, groupByDay, type DayResult } from './leaderboard';
+import { buildLeaderboard, groupByDay, pairTotals, type DayResult } from './leaderboard';
+
+describe('pairTotals', () => {
+  it('sums what each person owes each other person, largest first', () => {
+    expect(pairTotals([
+      { from: 'cara', to: 'you', amount: 20 },
+      { from: 'cara', to: 'ben', amount: 40 },
+      { from: 'cara', to: 'you', amount: 25 },
+    ])).toEqual([
+      { debtor: 'cara', creditor: 'you', amount: 45 },
+      { debtor: 'cara', creditor: 'ben', amount: 40 },
+    ]);
+  });
+
+  it('nets payments in both directions between a pair', () => {
+    expect(pairTotals([
+      { from: 'cara', to: 'you', amount: 30 },
+      { from: 'you', to: 'cara', amount: 10 },
+    ])).toEqual([{ debtor: 'cara', creditor: 'you', amount: 20 }]);
+  });
+
+  it('leaves out pairs that are square', () => {
+    expect(pairTotals([
+      { from: 'cara', to: 'you', amount: 15 },
+      { from: 'you', to: 'cara', amount: 15 },
+    ])).toEqual([]);
+  });
+});
 
 const r = (day: string, userId: string, hit: boolean, coinsChange: number): DayResult =>
   ({ day, userId, steps: hit ? 12000 : 3000, hit, coinsChange });

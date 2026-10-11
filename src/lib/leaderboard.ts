@@ -20,6 +20,25 @@ export function buildLeaderboard(results: DayResult[]): LeaderboardRow[] {
   return rows.sort((a, b) => b.net - a.net || b.streak - a.streak || a.userId.localeCompare(b.userId));
 }
 
+export type PairTotal = { debtor: string; creditor: string; amount: number };
+
+/** Who owes whom overall: payments between each pair netted to one direction, largest first. */
+export function pairTotals(transfers: { from: string; to: string; amount: number }[]): PairTotal[] {
+  const net = new Map<string, number>(); // key "a|b" with a < b; positive = a owes b
+  for (const t of transfers) {
+    const [a, b] = t.from < t.to ? [t.from, t.to] : [t.to, t.from];
+    const signed = t.from === a ? t.amount : -t.amount;
+    net.set(`${a}|${b}`, (net.get(`${a}|${b}`) ?? 0) + signed);
+  }
+  const totals: PairTotal[] = [];
+  for (const [key, amount] of net) {
+    if (amount === 0) continue;
+    const [a, b] = key.split('|');
+    totals.push(amount > 0 ? { debtor: a, creditor: b, amount } : { debtor: b, creditor: a, amount: -amount });
+  }
+  return totals.sort((x, y) => y.amount - x.amount);
+}
+
 export function groupByDay<T extends { day: string }>(rows: T[]): { day: string; rows: T[] }[] {
   const days = new Map<string, T[]>();
   for (const row of rows) days.set(row.day, [...(days.get(row.day) ?? []), row]);
