@@ -1,3 +1,4 @@
+import { memberDay } from './member-day';
 import type { Transfer } from './preview';
 import { supabase } from './supabase';
 import { addDays } from './time';
@@ -99,22 +100,16 @@ export async function getGroupToday(groupId: string, today: string): Promise<Gro
     today: { stepGoal: current.step_goal },
     tomorrow: pending ? { stepGoal: pending.step_goal } : null,
     members: members
-      .map((m) => {
-        const stakeToday = stakeOn(m.user_id, today);
-        const stakeTomorrow = stakeOn(m.user_id, tomorrow);
-        return {
-          userId: m.user_id,
-          name: m.profiles?.display_name ?? 'Player',
-          avatarUrl: m.profiles?.avatar_url ?? null,
-          steps: steps.get(m.user_id)?.steps ?? 0,
-          syncedAt: steps.get(m.user_id)?.synced_at ?? null,
-          stake: stakeToday ?? stakeTomorrow ?? 0,
-          stakeTomorrow: stakeToday !== null && stakeTomorrow !== stakeToday ? stakeTomorrow : null,
-          total: totals.get(m.user_id) ?? 0,
-          playsToday: m.joined_on < today && stakeToday !== null,
-          leavingAfterToday: m.left_on !== null,
-        };
-      })
+      .map((m) => ({
+        userId: m.user_id,
+        name: m.profiles?.display_name ?? 'Player',
+        avatarUrl: m.profiles?.avatar_url ?? null,
+        steps: steps.get(m.user_id)?.steps ?? 0,
+        syncedAt: steps.get(m.user_id)?.synced_at ?? null,
+        ...memberDay(m.joined_on, today, stakeOn(m.user_id, today), stakeOn(m.user_id, tomorrow)),
+        total: totals.get(m.user_id) ?? 0,
+        leavingAfterToday: m.left_on !== null,
+      }))
       .sort((a, b) => b.steps - a.steps),
   };
 }

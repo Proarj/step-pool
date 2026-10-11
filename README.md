@@ -1,8 +1,9 @@
 # StepPool
 
-A private step challenge for one group of friends. Everyone stakes the same
-number of virtual coins each day, and whoever misses the group's step goal
-loses their stake to the people who hit it. Design:
+A private step challenge for one group of friends. Everyone picks their own
+daily stake in virtual coins, and whoever misses the group's step goal pays
+their stake to the people who hit it, split by how much each winner staked.
+Design:
 `docs/superpowers/specs/2026-10-10-steppool-design.md`.
 
 ## Requirements
@@ -23,7 +24,7 @@ All backend logic is in `supabase/migrations/`:
 
 | File | What it does |
 |---|---|
-| `…01_schema.sql` | Tables, IST clock helpers, sign-up trigger (+1,000 coins), write lockdown |
+| `…01_schema.sql` | Tables, IST clock helpers, sign-up trigger, write lockdown (the 1,000-coin wallet it created was removed by `20261011000001`) |
 | `…02_groups.sql` | `create_group`, `join_group`, `update_group_settings` (from tomorrow), `leave_group` |
 | `…03_steps.sql` | `upload_steps`: only for today in IST |
 | `…04_scoring.sql` | `score_pending_days`: settles every unscored day before today |
