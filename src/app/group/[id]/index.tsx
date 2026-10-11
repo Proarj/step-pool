@@ -31,6 +31,9 @@ function MemberCard({ member, goal, isMe, change, now }: {
         {member.leavingAfterToday ? ' · leaving after today' : ''}
         {` · ${member.balance} coins`}
       </Muted>
+      {isMe && member.steps === 0 ? (
+        <Button kind="link" title="Steps at 0? Check step access" onPress={() => router.push('/setup')} />
+      ) : null}
     </Card>
   );
 }

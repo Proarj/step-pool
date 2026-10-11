@@ -6,12 +6,24 @@ import { syncNow } from '@/lib/sync';
 import { useAsync } from '@/lib/use-async';
 import { Body, Button, Card, Muted, Screen, Title } from '@/ui/kit';
 
+const IOS_STEPS_PATH = 'Health app → your profile picture → Apps → StepPool → turn on Steps';
+
 const STATUS_TEXT: Record<HealthStatus, string> = {
-  ready: 'Step access is on. StepPool syncs when you open it, in the background, and when you tap Sync.',
+  // iOS never tells apps whether read access was granted, only that it was asked.
+  ready: Platform.OS === 'ios'
+    ? `StepPool has asked for step access. If your steps stay at 0, turn it on: ${IOS_STEPS_PATH}.`
+    : 'Step access is on. StepPool syncs when you open it, in the background, and when you tap Sync.',
   'needs-permission': 'Allow StepPool to read your steps.',
-  'needs-update': 'Update Health Connect from the Play Store, then come back.',
-  unavailable: 'Step data isn’t available on this device.',
+  'needs-update': 'Install or update Health Connect from the Play Store, then come back.',
+  unavailable: Platform.OS === 'android'
+    ? 'This phone needs the Health Connect app from the Play Store.'
+    : 'Step data isn’t available on this device.',
 };
+
+function settingsButtonTitle(status: HealthStatus | undefined): string {
+  if (Platform.OS === 'ios') return 'Open the Health app';
+  return status === 'needs-update' || status === 'unavailable' ? 'Get Health Connect' : 'Open Health Connect';
+}
 
 function PlatformNotes() {
   if (Platform.OS === 'ios') {
@@ -19,7 +31,7 @@ function PlatformNotes() {
       <Card>
         <Body>iPhone + Apple Watch</Body>
         <Muted>StepPool reads the same step total the Health app shows, which already merges your iPhone and Apple Watch.</Muted>
-        <Muted>If your steps stay at 0: Settings → Health → Data Access & Devices → StepPool → turn on Steps.</Muted>
+        <Muted>If your steps stay at 0: {IOS_STEPS_PATH}.</Muted>
       </Card>
     );
   }
@@ -57,7 +69,7 @@ export default function Setup() {
       {status === 'needs-permission' ? <Button title="Allow step access" onPress={allow} busy={busy} /> : null}
       <Button
         kind="secondary"
-        title={Platform.OS === 'ios' ? 'Open the Health app' : 'Open Health Connect'}
+        title={settingsButtonTitle(status)}
         onPress={() => void health.openSettings()}
       />
     </Screen>

@@ -51,6 +51,7 @@ export default function Home() {
       <Button title="Create a group" onPress={() => router.push('/create')} />
       <Button kind="secondary" title="Join with a code" onPress={() => router.push('/join')} />
       {error ? <ErrorText>{error}</ErrorText> : null}
+      <Button kind="link" title="Step access" onPress={() => router.push('/setup')} />
       <Button kind="link" title="Sign out" onPress={() => void signOut()} />
     </Screen>
   );

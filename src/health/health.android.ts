@@ -7,7 +7,12 @@ import {
   requestPermission,
   SdkAvailabilityStatus,
 } from 'react-native-health-connect';
+import { Linking } from 'react-native';
 import type { HealthApi, HealthStatus } from './types';
+
+// Android 13 and older need the Health Connect app from the Play Store.
+const STORE_APP = 'market://details?id=com.google.android.apps.healthdata&url=healthconnect%3A%2F%2Fonboarding';
+const STORE_WEB = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
 
 let initialized = false;
 async function ensureInitialized(): Promise<boolean> {
@@ -47,6 +52,15 @@ export const health: HealthApi = {
     return result.COUNT_TOTAL ?? 0;
   },
   async openSettings() {
-    openHealthConnectSettings();
+    const current = await status();
+    if (current === 'needs-update' || current === 'unavailable') {
+      await Linking.openURL(STORE_APP).catch(() => Linking.openURL(STORE_WEB));
+      return;
+    }
+    try {
+      openHealthConnectSettings();
+    } catch {
+      await Linking.openURL(STORE_WEB);
+    }
   },
 };

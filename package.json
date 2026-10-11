@@ -1,6 +1,6 @@
 {
   "name": "step-pool",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "dependencies": {
     "@kingstinct/react-native-healthkit": "^16.1.0",
