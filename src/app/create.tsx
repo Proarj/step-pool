@@ -29,9 +29,9 @@ export default function Create() {
   return (
     <Screen>
       <Field label="Group name" value={name} onChangeText={setName} placeholder="Walk Squad" maxLength={40} />
-      <Field label="Daily step goal" value={goal} onChangeText={setGoal} keyboardType="number-pad" />
-      <Field label="Daily stake (coins)" value={stake} onChangeText={setStake} keyboardType="number-pad" />
-      <Muted>With 4 people, a stake that’s a multiple of 6 (like 30) always splits evenly.</Muted>
+      <Field label="Daily step goal (for everyone)" value={goal} onChangeText={setGoal} keyboardType="number-pad" />
+      <Field label="Your daily stake (coins)" value={stake} onChangeText={setStake} keyboardType="number-pad" />
+      <Muted>Everyone picks their own stake. If you miss the goal you pay your stake to the people who hit it, split by how much each of them staked.</Muted>
       <Muted>Everyone starts playing the day after they join. Share the invite code today so you all start tomorrow.</Muted>
       <Button title="Create group" onPress={submit} busy={busy} />
       {error ? <ErrorText>{error}</ErrorText> : null}

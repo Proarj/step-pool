@@ -14,51 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      coin_ledger: {
-        Row: {
-          amount: number
-          created_at: string
-          day: string | null
-          group_id: string | null
-          id: number
-          reason: string
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          day?: string | null
-          group_id?: string | null
-          id?: never
-          reason: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          day?: string | null
-          group_id?: string | null
-          id?: never
-          reason?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "coin_ledger_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "coin_ledger_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       daily_steps: {
         Row: {
           day: string
@@ -94,30 +49,30 @@ export type Database = {
       day_results: {
         Row: {
           coins_change: number
-          daily_stake: number
           day: string
           group_id: string
           hit: boolean
+          stake: number
           step_goal: number
           steps: number
           user_id: string
         }
         Insert: {
           coins_change: number
-          daily_stake: number
           day: string
           group_id: string
           hit: boolean
+          stake: number
           step_goal: number
           steps: number
           user_id: string
         }
         Update: {
           coins_change?: number
-          daily_stake?: number
           day?: string
           group_id?: string
           hit?: boolean
+          stake?: number
           step_goal?: number
           steps?: number
           user_id?: string
@@ -133,6 +88,52 @@ export type Database = {
           {
             foreignKeyName: "day_results_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      day_transfers: {
+        Row: {
+          amount: number
+          day: string
+          from_user: string
+          group_id: string
+          to_user: string
+        }
+        Insert: {
+          amount: number
+          day: string
+          from_user: string
+          group_id: string
+          to_user: string
+        }
+        Update: {
+          amount?: number
+          day?: string
+          from_user?: string
+          group_id?: string
+          to_user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day_transfers_from_user_fkey"
+            columns: ["from_user"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "day_transfers_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "day_transfers_to_user_fkey"
+            columns: ["to_user"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -177,19 +178,16 @@ export type Database = {
       }
       group_settings: {
         Row: {
-          daily_stake: number
           effective_from: string
           group_id: string
           step_goal: number
         }
         Insert: {
-          daily_stake: number
           effective_from: string
           group_id: string
           step_goal: number
         }
         Update: {
-          daily_stake?: number
           effective_from?: string
           group_id?: string
           step_goal?: number
@@ -230,6 +228,42 @@ export type Database = {
           {
             foreignKeyName: "groups_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_stakes: {
+        Row: {
+          effective_from: string
+          group_id: string
+          stake: number
+          user_id: string
+        }
+        Insert: {
+          effective_from: string
+          group_id: string
+          stake: number
+          user_id: string
+        }
+        Update: {
+          effective_from?: string
+          group_id?: string
+          stake?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_stakes_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_stakes_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -285,14 +319,22 @@ export type Database = {
       }
     }
     Views: {
-      balances: {
+      group_totals: {
         Row: {
-          balance: number | null
+          group_id: string | null
+          total: number | null
           user_id: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "coin_ledger_user_id_fkey"
+            foreignKeyName: "day_results_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "day_results_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -305,13 +347,10 @@ export type Database = {
       app_now: { Args: never; Returns: string }
       app_today: { Args: never; Returns: string }
       appears_in_my_groups: { Args: { p_user_id: string }; Returns: boolean }
-      assert_valid_settings: {
-        Args: { p_daily_stake: number; p_step_goal: number }
-        Returns: undefined
-      }
-      balance_of: { Args: { p_user_id: string }; Returns: number }
+      assert_valid_goal: { Args: { p_step_goal: number }; Returns: undefined }
+      assert_valid_stake: { Args: { p_stake: number }; Returns: undefined }
       create_group: {
-        Args: { p_daily_stake: number; p_name: string; p_step_goal: number }
+        Args: { p_name: string; p_stake: number; p_step_goal: number }
         Returns: {
           created_at: string
           created_by: string
@@ -331,6 +370,7 @@ export type Database = {
         Args: { p_day: string; p_goal: number; p_group_id: string }
         Returns: {
           hit: boolean
+          stake: number
           steps: number
           user_id: string
         }[]
@@ -341,7 +381,7 @@ export type Database = {
       }
       is_group_member: { Args: { p_group_id: string }; Returns: boolean }
       join_group: {
-        Args: { p_invite_code: string }
+        Args: { p_invite_code: string; p_stake: number }
         Returns: {
           created_at: string
           created_by: string
@@ -357,17 +397,24 @@ export type Database = {
         }
       }
       leave_group: { Args: { p_group_id: string }; Returns: undefined }
+      put_stake_from_tomorrow: {
+        Args: { p_group_id: string; p_stake: number; p_user_id: string }
+        Returns: undefined
+      }
       require_user: { Args: never; Returns: string }
       score_group_day: {
         Args: { p_day: string; p_group_id: string }
         Returns: undefined
       }
       score_pending_days: { Args: never; Returns: number }
+      set_my_stake: {
+        Args: { p_group_id: string; p_stake: number }
+        Returns: undefined
+      }
       shares_group_with: { Args: { p_user_id: string }; Returns: boolean }
       update_group_settings: {
-        Args: { p_daily_stake: number; p_group_id: string; p_step_goal: number }
+        Args: { p_group_id: string; p_step_goal: number }
         Returns: {
-          daily_stake: number
           effective_from: string
           group_id: string
           step_goal: number

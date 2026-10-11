@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Share } from 'react-native';
-import { getGroupToday, leaveGroup, updateGroupSettings } from '@/lib/api';
+import { getGroupToday, leaveGroup, setMyStake, updateGroupGoal } from '@/lib/api';
 import { message } from '@/lib/errors';
+import { useSession } from '@/lib/session';
 import { istToday } from '@/lib/time';
 import { useAsync } from '@/lib/use-async';
 import { Body, Button, Card, ErrorText, Field, Muted, Screen, Subtitle } from '@/ui/kit';
@@ -11,29 +12,32 @@ const toInt = (s: string) => Number.parseInt(s.replace(/\D/g, ''), 10);
 
 export default function GroupSettings() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const me = useSession().session?.user.id;
   const today = istToday();
   const { data } = useAsync(() => getGroupToday(id, today), [id, today]);
   const [goal, setGoal] = useState<string>();
   const [stake, setStake] = useState<string>();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'goal' | 'stake'>();
   const [note, setNote] = useState<string>();
   const [error, setError] = useState<string>();
 
   if (!data) return <Screen><Muted>Loading…</Muted></Screen>;
-  const upcoming = data.tomorrow ?? data.today;
-  const goalText = goal ?? String(upcoming.stepGoal);
-  const stakeText = stake ?? String(upcoming.dailyStake);
+  const mine = data.members.find((m) => m.userId === me);
+  const goalText = goal ?? String((data.tomorrow ?? data.today).stepGoal);
+  const stakeText = stake ?? String(mine?.stakeTomorrow ?? mine?.stake ?? 30);
 
-  async function save() {
-    setBusy(true);
+  async function save(what: 'goal' | 'stake') {
+    setBusy(what);
     setError(undefined);
+    setNote(undefined);
     try {
-      await updateGroupSettings(id, toInt(goalText), toInt(stakeText));
-      setNote('Saved. The new goal and stake start tomorrow.');
+      if (what === 'goal') await updateGroupGoal(id, toInt(goalText));
+      else await setMyStake(id, toInt(stakeText));
+      setNote(what === 'goal' ? 'Saved. The new goal starts tomorrow.' : 'Saved. Your new stake starts tomorrow.');
     } catch (e) {
       setError(message(e));
     } finally {
-      setBusy(false);
+      setBusy(undefined);
     }
   }
 
@@ -62,14 +66,22 @@ export default function GroupSettings() {
         />
       </Card>
 
-      <Subtitle>Goal and stake</Subtitle>
+      <Subtitle>Group goal</Subtitle>
       <Card>
-        <Muted>Today: {data.today.stepGoal.toLocaleString()} steps, {data.today.dailyStake} coins. Changes start tomorrow.</Muted>
+        <Muted>Today: {data.today.stepGoal.toLocaleString()} steps for everyone. Changes start tomorrow.</Muted>
         <Field label="Daily step goal" value={goalText} onChangeText={setGoal} keyboardType="number-pad" />
-        <Field label="Daily stake (coins)" value={stakeText} onChangeText={setStake} keyboardType="number-pad" />
-        <Button title="Save for tomorrow" onPress={save} busy={busy} />
-        {note ? <Muted>{note}</Muted> : null}
+        <Button title="Save goal for tomorrow" onPress={() => void save('goal')} busy={busy === 'goal'} />
       </Card>
+
+      <Subtitle>Your stake</Subtitle>
+      <Card>
+        <Muted>
+          {mine?.playsToday ? `Today you’re staking ${mine.stake} coins.` : 'You start playing tomorrow.'} Changes start tomorrow.
+        </Muted>
+        <Field label="Your daily stake (coins)" value={stakeText} onChangeText={setStake} keyboardType="number-pad" />
+        <Button title="Save stake for tomorrow" onPress={() => void save('stake')} busy={busy === 'stake'} />
+      </Card>
+      {note ? <Muted>{note}</Muted> : null}
 
       <Button kind="danger" title="Leave group" onPress={confirmLeave} />
       {error ? <ErrorText>{error}</ErrorText> : null}

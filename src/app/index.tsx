@@ -2,8 +2,9 @@ import { router } from 'expo-router';
 import { Pressable, Text } from 'react-native';
 import { health } from '@/health/health';
 import type { HealthStatus } from '@/health/types';
-import { getMyBalance, getMyGroups } from '@/lib/api';
+import { getMyGroups, getMyTotal } from '@/lib/api';
 import { signOut } from '@/lib/auth';
+import { formatCoins } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/lib/use-async';
 import { Body, Button, Card, ErrorText, Muted, Screen, Subtitle } from '@/ui/kit';
@@ -19,15 +20,15 @@ export default function Home() {
   const t = useTheme();
   const userId = useSession().session?.user.id ?? '';
   const { data, error, loading, reload } = useAsync(async () => {
-    const [groups, balance, healthStatus] = await Promise.all([getMyGroups(), getMyBalance(userId), health.status()]);
-    return { groups, balance, healthStatus };
+    const [groups, total, healthStatus] = await Promise.all([getMyGroups(), getMyTotal(userId), health.status()]);
+    return { groups, total, healthStatus };
   }, [userId]);
 
   return (
     <Screen refreshing={loading} onRefresh={reload}>
       <Card>
-        <Muted>Your coins</Muted>
-        <Text style={{ fontSize: 36, fontWeight: '700', color: t.text }}>{data?.balance ?? '…'}</Text>
+        <Muted>Your total (coins won minus lost, all groups)</Muted>
+        <Text style={{ fontSize: 36, fontWeight: '700', color: t.text }}>{data ? formatCoins(data.total) : '…'}</Text>
       </Card>
 
       {data && data.healthStatus !== 'ready' ? (
