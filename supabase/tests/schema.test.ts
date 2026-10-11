@@ -10,14 +10,16 @@ beforeEach(async () => {
 });
 
 describe('signing up', () => {
-  it('creates a profile named after the Google account and grants 1,000 coins', async () => {
+  it('creates a profile named after the Google account', async () => {
     const id = await db.createUser({ name: 'Asha Rao', email: 'asha@example.com' });
     const [profile] = await db.sql<{ display_name: string }>(
       'select display_name from public.profiles where id = $1', [id]);
     expect(profile.display_name).toBe('Asha Rao');
-    const ledger = await db.sql<{ amount: number; reason: string }>(
-      'select amount, reason from public.coin_ledger where user_id = $1', [id]);
-    expect(ledger).toEqual([{ amount: 1000, reason: 'welcome' }]);
+  });
+
+  it('has no wallet: there is no coin ledger and no welcome coins', async () => {
+    const [row] = await db.sql<{ ledger: string | null }>(`select to_regclass('public.coin_ledger')::text as ledger`);
+    expect(row.ledger).toBeNull();
   });
 
   it('falls back to the email name when Google sends no name', async () => {
@@ -42,7 +44,12 @@ describe('direct writes from the app', () => {
     const id = await db.createUser({ name: 'Asha' });
     await db.as(id, async () => {
       await expect(db.sql(
-        `insert into public.coin_ledger (user_id, amount, reason) values ($1, 500, 'won')`, [id],
+        `insert into public.day_transfers (group_id, day, from_user, to_user, amount)
+         values (gen_random_uuid(), '2026-10-11', $1, $1, 500)`, [id],
+      )).rejects.toThrow(/permission denied/);
+      await expect(db.sql(
+        `insert into public.member_stakes (group_id, user_id, effective_from, stake)
+         values (gen_random_uuid(), $1, '2026-10-11', 1)`, [id],
       )).rejects.toThrow(/permission denied/);
       await expect(db.sql(
         `insert into public.daily_steps (user_id, day, steps, source, synced_at)
@@ -51,7 +58,7 @@ describe('direct writes from the app', () => {
       await expect(db.sql(
         `update public.profiles set display_name = 'Hacker' where id = $1`, [id],
       )).rejects.toThrow(/permission denied/);
-      await expect(db.sql('delete from public.coin_ledger')).rejects.toThrow(/permission denied/);
+      await expect(db.sql('delete from public.day_results')).rejects.toThrow(/permission denied/);
     });
   });
 });

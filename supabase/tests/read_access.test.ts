@@ -36,16 +36,19 @@ describe('a member', () => {
     });
   });
 
-  it('sees profiles, steps, ledger and balances of fellow members only', async () => {
+  it('sees profiles, steps, stakes, payments and totals of their group only', async () => {
     await db.as(asha, async () => {
       const both = [asha, ben].sort();
       expect(ids(await db.sql('select id from public.profiles'), 'id')).toEqual(both);
       expect(ids(await db.sql('select user_id from public.daily_steps'), 'user_id')).toEqual(both);
-      expect(ids(await db.sql('select distinct user_id from public.coin_ledger'), 'user_id')).toEqual(both);
-      const balances = await db.sql<{ user_id: string; balance: number }>(
-        'select user_id, balance from public.balances');
-      expect(Object.fromEntries(balances.map((b) => [b.user_id, b.balance])))
-        .toEqual({ [asha]: 1030, [ben]: 970 });
+      expect(ids(await db.sql('select distinct user_id from public.member_stakes'), 'user_id')).toEqual(both);
+      const paid = await db.sql<{ from_user: string; to_user: string; amount: number }>(
+        'select from_user, to_user, amount from public.day_transfers');
+      expect(paid).toEqual([{ from_user: ben, to_user: asha, amount: 30 }]);
+      const totals = await db.sql<{ group_id: string; user_id: string; total: number }>(
+        'select group_id, user_id, total from public.group_totals');
+      expect(Object.fromEntries(totals.map((t) => [t.user_id, t.total]))).toEqual({ [asha]: 30, [ben]: -30 });
+      expect(new Set(totals.map((t) => t.group_id))).toEqual(new Set([g1]));
     });
   });
 
@@ -55,6 +58,9 @@ describe('a member', () => {
       expect(await db.sql('select user_id from public.group_members where group_id = $1', [g1])).toEqual([]);
       expect(await db.sql('select user_id from public.day_results where group_id = $1', [g1])).toEqual([]);
       expect(await db.sql('select user_id from public.daily_steps where user_id = $1', [asha])).toEqual([]);
+      expect(await db.sql('select user_id from public.member_stakes where group_id = $1', [g1])).toEqual([]);
+      expect(await db.sql('select from_user from public.day_transfers where group_id = $1', [g1])).toEqual([]);
+      expect(await db.sql('select user_id from public.group_totals where group_id = $1', [g1])).toEqual([]);
     });
     expect(g2).toBeTruthy();
   });
@@ -83,9 +89,9 @@ describe('a member', () => {
     });
   });
 
-  it('still cannot write to the balances view', async () => {
+  it('still cannot write to the totals view', async () => {
     await db.as(asha, async () => {
-      await expect(db.sql(`delete from public.balances`)).rejects.toThrow(/permission denied|cannot delete/);
+      await expect(db.sql(`delete from public.group_totals`)).rejects.toThrow(/permission denied|cannot delete/);
     });
   });
 });
@@ -93,7 +99,7 @@ describe('a member', () => {
 describe('a signed-out visitor', () => {
   it('cannot read anything', async () => {
     await db.as(null, async () => {
-      for (const table of ['groups', 'profiles', 'daily_steps', 'coin_ledger', 'day_results', 'balances']) {
+      for (const table of ['groups', 'profiles', 'daily_steps', 'member_stakes', 'day_transfers', 'day_results', 'group_totals']) {
         await expect(db.sql(`select * from public.${table}`)).rejects.toThrow(/permission denied/);
       }
     });

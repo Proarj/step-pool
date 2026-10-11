@@ -8,20 +8,23 @@ export function helpers(db: TestDb) {
     return ids;
   }
 
-  async function join(userId: string, inviteCode: string): Promise<void> {
-    await db.as(userId, () => db.sql('select public.join_group($1)', [inviteCode]));
+  async function join(userId: string, inviteCode: string, stake = 30): Promise<void> {
+    await db.as(userId, () => db.sql('select public.join_group($1, $2)', [inviteCode, stake]));
   }
 
-  /** Creates a group as ownerId and joins memberIds, all at the current test time. */
+  /**
+   * Creates a group as ownerId and joins memberIds, all at the current test time.
+   * Everyone stakes `stake` unless `stakes` gives a person their own.
+   */
   async function newGroup(
     ownerId: string,
     memberIds: string[],
-    { goal = 10000, stake = 30 }: { goal?: number; stake?: number } = {},
+    { goal = 10000, stake = 30, stakes = {} }: { goal?: number; stake?: number; stakes?: Record<string, number> } = {},
   ): Promise<{ groupId: string; inviteCode: string }> {
     const [group] = await db.as(ownerId, () =>
       db.sql<{ id: string; invite_code: string }>(
-        'select id, invite_code from public.create_group($1, $2, $3)', ['Walkers', goal, stake]));
-    for (const id of memberIds) await join(id, group.invite_code);
+        'select id, invite_code from public.create_group($1, $2, $3)', ['Walkers', goal, stakes[ownerId] ?? stake]));
+    for (const id of memberIds) await join(id, group.invite_code, stakes[id] ?? stake);
     return { groupId: group.id, inviteCode: group.invite_code };
   }
 
@@ -39,10 +42,12 @@ export function helpers(db: TestDb) {
     return row.n;
   }
 
-  async function balance(userId: string): Promise<number> {
-    const [row] = await db.sql<{ b: number }>(
-      'select coalesce(sum(amount), 0)::int as b from public.coin_ledger where user_id = $1', [userId]);
-    return row.b;
+  /** A person's running total in a group (sum of their day results). */
+  async function total(groupId: string, userId: string): Promise<number> {
+    const [row] = await db.sql<{ t: number }>(
+      'select coalesce(sum(coins_change), 0)::int as t from public.day_results where group_id = $1 and user_id = $2',
+      [groupId, userId]);
+    return row.t;
   }
 
   /** coins_change per participant for one group-day, e.g. { [userId]: -30 }. */
@@ -53,5 +58,13 @@ export function helpers(db: TestDb) {
     return Object.fromEntries(rows.map((r) => [r.user_id, r.coins_change]));
   }
 
-  return { users, join, newGroup, walk, scoreAt, balance, changes };
+  /** Payments for one group-day, keyed "from>to", e.g. { [`${cara}>${you}`]: 20 }. */
+  async function transfers(groupId: string, day: string): Promise<Record<string, number>> {
+    const rows = await db.sql<{ from_user: string; to_user: string; amount: number }>(
+      'select from_user, to_user, amount from public.day_transfers where group_id = $1 and day = $2::date',
+      [groupId, day]);
+    return Object.fromEntries(rows.map((r) => [`${r.from_user}>${r.to_user}`, r.amount]));
+  }
+
+  return { users, join, newGroup, walk, scoreAt, total, changes, transfers };
 }
